@@ -3,21 +3,32 @@ from pages.registration_page import RegistrationPage
 from pages.home_page import HomePage
 from pages.checkout_page import CheckoutPage
 from pages.profile_page import ProfilePage
-from utils.test_data import generate_test_user
+from pages.login_page import LoginPage
+from utils.test_data import generate_test_user, get_existing_user
 import pytest
 
-def test_purchase_flow(page: Page):
+@pytest.mark.parametrize("use_existing_user", [True, False], ids=["existing_user", "new_user"])
+def test_purchase_flow(page: Page, use_existing_user: bool):
     # Initialize page objects
     registration_page = RegistrationPage(page)
+    login_page = LoginPage(page)
     home_page = HomePage(page)
     checkout_page = CheckoutPage(page)
     profile_page = ProfilePage(page)
 
-    # Register new user
-    user_data = generate_test_user()
-    registration_page.navigate_to_register()
-    registration_page.fill_registration_form(user_data)
-    registration_page.submit_registration()
+    if use_existing_user:
+        # Use existing user
+        user_data = get_existing_user()
+        if not user_data['login_name'] or not user_data['password']:
+            pytest.skip("Test user credentials not set in environment variables")
+        login_page.navigate_to_login()
+        login_page.login(user_data['login_name'], user_data['password'])
+    else:
+        # Register new user
+        user_data = generate_test_user()
+        registration_page.navigate_to_register()
+        registration_page.fill_registration_form(user_data)
+        registration_page.submit_registration()
 
     # Set currency to GBP
     home_page.navigate_to_home_page()
@@ -36,5 +47,7 @@ def test_purchase_flow(page: Page):
     profile_page.verify_order_id(order_number)
     order_total = profile_page.get_latest_order_total()
 
+    # Verify total price
+    # Assuming the shipping cost is fixed for this test
     shipping_cost = 1.59
     assert pytest.approx(order_total + shipping_cost, rel=0.01) == pytest.approx(total_price, rel=0.01)

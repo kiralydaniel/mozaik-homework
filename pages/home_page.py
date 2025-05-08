@@ -18,6 +18,9 @@ class HomePage(BasePage):
         self.product_price = self.page.locator("span.total-price")
         self.cart_checkout_button = page.locator("#cart_checkout1")
         self.minimum_quantity = page.get_by_text("(This product has a minimum")
+        self.fragrance_type = page.get_by_text("Fragrance Type", exact=True)
+        self.fragrance_options = page.locator("input[type='checkbox'][name^='option[335]']")
+        self.scent_options = page.get_by_text("Choose Scent")
 
     def user_is_logged_in(self):
         expect(self.profile_menu).to_be_visible()
@@ -51,6 +54,38 @@ class HomePage(BasePage):
         price_text = self.product_price.inner_text().replace("£", "").replace(",", "").strip()
 
         return float(price_text)
+    
+    def select_fragrance_option(self, option_id=None) -> bool:
+        """
+        Select a fragrance option by ID or randomly if none provided
+        Options from HTML: option335722 (Eau de Cologne), option335721 (Eau de Toilette), option335720 (Eau de Parfum)
+        """
+        # Wait for fragrance options to be visible
+        self.fragrance_options.first.wait_for(state="visible")
+        
+        # Get all available fragrance options
+        options = self.fragrance_options.all()
+        
+        if not options:
+            print("No fragrance options found")
+            return False
+            
+        if option_id:
+            # Find the option with the specified ID
+            for option in options:
+                if option.get_attribute("id") == option_id:
+                    option.check()
+                    print(f"Selected fragrance option: {option_id}")
+                    return True
+            print(f"Option with ID {option_id} not found")
+            return False
+        else:
+            # Select a random option
+            random_option = random.choice(options)
+            option_id = random_option.get_attribute("id")
+            random_option.check()
+            print(f"Selected random fragrance option: {option_id}")
+            return True
 
     def add_random_item_to_cart_from_subcategories(self, subcategories: list[dict]) -> float:
         total_price = 0.0
@@ -76,6 +111,18 @@ class HomePage(BasePage):
                     if self.size_option.is_visible():
                         self.size_option.click()
 
+                # Handle fragrance options
+                if subcategory["name"] == "Women":
+                    if self.fragrance_type.is_visible():
+                        if not self.select_fragrance_option():
+                            in_stock_products.remove(random_product)
+                            self.page.go_back()
+                            continue
+                    elif self.scent_options.is_visible():
+                        in_stock_products.remove(random_product)
+                        self.page.go_back()
+                        continue
+
                 # Handle products with more than one minimum quantity
                 if self.minimum_quantity.is_visible():
                     print("Product has a minimum quantity, skipping.")
@@ -90,12 +137,13 @@ class HomePage(BasePage):
                     self.page.go_back()
                     continue
 
-                # Add product price to total
-                total_price += self.get_product_price()
+                # Get product price
+                product_price = self.get_product_price()
 
                 # Click Add to Cart
                 self.add_to_cart_button.click()
                 print(f"Added product from subcategory: {subcategory['name']}")
+                total_price += product_price
                 break
             else:
                 print(f"No suitable product to add from subcategory: {subcategory['name']}")
@@ -104,4 +152,3 @@ class HomePage(BasePage):
     
     def go_to_checkout(self):
         self.cart_checkout_button.click()
-
