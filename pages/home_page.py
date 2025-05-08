@@ -15,6 +15,7 @@ class HomePage(BasePage):
         self.add_to_cart_button = page.locator("#product a.cart")
         self.size_option = page.get_by_text("3 UK")
         self.description = page.get_by_role("link", name="Description")
+        self.product_price = self.page.locator("span.total-price")
 
     def user_is_logged_in(self):
         expect(self.profile_menu).to_be_visible()
@@ -42,8 +43,15 @@ class HomePage(BasePage):
                 subcategories.append({"name": name, "path": path})
         
         return subcategories
+    
+    def get_product_price(self) -> float:
+        self.product_price.wait_for(state="visible")
+        price_text = self.product_price.inner_text().replace("£", "").replace(",", "").strip()
+        
+        return float(price_text)
 
-    def add_random_item_to_cart_from_subcategories(self, subcategories: list[dict]):
+    def add_random_item_to_cart_from_subcategories(self, subcategories: list[dict]) -> float:
+        total_price = 0.0
         for subcategory in subcategories:
             self.navigate(subcategory["path"])
 
@@ -73,6 +81,9 @@ class HomePage(BasePage):
                     self.page.go_back()
                     continue
 
+                # Add product price to total
+                total_price += self.get_product_price()
+
                 # Click Add to Cart
                 self.add_to_cart_button.click()
                 print(f"Added product from subcategory: {subcategory['name']}")
@@ -80,3 +91,4 @@ class HomePage(BasePage):
             else:
                 print(f"No suitable product to add from subcategory: {subcategory['name']}")
 
+        return total_price
