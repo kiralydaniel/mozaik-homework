@@ -16,6 +16,8 @@ class HomePage(BasePage):
         self.size_option = page.get_by_text("3 UK")
         self.description = page.get_by_role("link", name="Description")
         self.product_price = self.page.locator("span.total-price")
+        self.cart_checkout_button = page.locator("#cart_checkout1")
+        self.minimum_quantity = page.get_by_text("(This product has a minimum")
 
     def user_is_logged_in(self):
         expect(self.profile_menu).to_be_visible()
@@ -47,7 +49,7 @@ class HomePage(BasePage):
     def get_product_price(self) -> float:
         self.product_price.wait_for(state="visible")
         price_text = self.product_price.inner_text().replace("£", "").replace(",", "").strip()
-        
+
         return float(price_text)
 
     def add_random_item_to_cart_from_subcategories(self, subcategories: list[dict]) -> float:
@@ -74,6 +76,13 @@ class HomePage(BasePage):
                     if self.size_option.is_visible():
                         self.size_option.click()
 
+                # Handle products with more than one minimum quantity
+                if self.minimum_quantity.is_visible():
+                    print("Product has a minimum quantity, skipping.")
+                    in_stock_products.remove(random_product)
+                    self.page.go_back()
+                    continue
+
                 # Check for "Add to Cart" button (to skip 'Call to order' cases)
                 if not self.add_to_cart_button.is_visible():
                     print("No Add to Cart button, skipping.")
@@ -91,4 +100,8 @@ class HomePage(BasePage):
             else:
                 print(f"No suitable product to add from subcategory: {subcategory['name']}")
 
-        return total_price
+        return round(total_price, 2)
+    
+    def go_to_checkout(self):
+        self.cart_checkout_button.click()
+
