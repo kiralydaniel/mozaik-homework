@@ -1,6 +1,7 @@
 from .base_page import BasePage
-from playwright.sync_api import expect
+from playwright.sync_api import expect, Locator
 import random
+from typing import List, Dict, Optional, Any
 
 class HomePage(BasePage):
     def __init__(self, page):
@@ -22,19 +23,20 @@ class HomePage(BasePage):
         self.fragrance_options = page.locator("input[type='checkbox'][name^='option[335]']")
         self.scent_options = page.get_by_text("Choose Scent")
 
-    def user_is_logged_in(self):
-        expect(self.profile_menu).to_be_visible()
+    def user_is_logged_in(self) -> bool:
+        return self.profile_menu.is_visible()
 
-    def navigate_to_home_page(self):
+    def navigate_to_home_page(self) -> None:
         self.navigate("/")
 
-    def set_currency_to_gbp(self):
+    def set_currency_to_gbp(self) -> None:
         expect(self.currency_dropdown).to_be_visible()
         self.currency_dropdown.hover()
         expect(self.currency_gbp).to_be_visible()
         self.currency_gbp.click()
 
-    def get_subcategory_links(self) -> list[dict]:
+    def get_subcategory_links(self) -> List[Dict[str, str]]:
+
         subcategory_links = self.subcategory_links_locator
         count = subcategory_links.count()
 
@@ -50,12 +52,12 @@ class HomePage(BasePage):
         return subcategories
     
     def get_product_price(self) -> float:
+
         self.product_price.wait_for(state="visible")
         price_text = self.product_price.inner_text().replace("£", "").replace(",", "").strip()
-
         return float(price_text)
     
-    def select_fragrance_option(self, option_id=None) -> bool:
+    def select_fragrance_option(self, option_id: Optional[str] = None) -> bool:
         """
         Select a fragrance option by ID or randomly if none provided
         Options from HTML: option335722 (Eau de Cologne), option335721 (Eau de Toilette), option335720 (Eau de Parfum)
@@ -87,68 +89,87 @@ class HomePage(BasePage):
             print(f"Selected random fragrance option: {option_id}")
             return True
 
-    def add_random_item_to_cart_from_subcategories(self, subcategories: list[dict]) -> float:
-        total_price = 0.0
-        for subcategory in subcategories:
-            self.navigate(subcategory["path"])
+    def get_in_stock_products(self) -> List[Locator]:
 
-            products = self.product_items.all()
-            in_stock_products = [p for p in products if not p.locator("span.nostock").is_visible()]
+        products = self.product_items.all()
+        return [p for p in products if not p.locator("span.nostock").is_visible()]
+
+    def handle_product_options(self, subcategory_name: str) -> bool:
+
+        # Handle required size option for shoes
+        if subcategory_name == "Shoes":
+            if self.size_option.is_visible():
+                self.size_option.click()
+
+        # Handle fragrance options
+        if subcategory_name == "Women":
+            if self.fragrance_type.is_visible():
+                if not self.select_fragrance_option():
+                    return False
+            elif self.scent_options.is_visible():
+                return False
+
+        # Handle products with more than one minimum quantity
+        if self.minimum_quantity.is_visible():
+            print("Product has a minimum quantity, skipping.")
+            return False
+
+        # Check for "Add to Cart" button (to skip 'Call to order' cases)
+        if not self.add_to_cart_button.is_visible():
+            print("No Add to Cart button, skipping.")
+            return False
             
-            if not in_stock_products:
-                print(f"No in-stock products in subcategory: {subcategory['name']}")
-                continue
+        return True
 
-            max_attempts = len(in_stock_products)
-            for attempt in range(max_attempts):
-                random_product = random.choice(in_stock_products)
-                random_product.click()
+    def try_to_add_product_to_cart(self, product: Locator, subcategory_name: str) -> float:
 
-                self.description.wait_for(state="visible")
+        product.click()
+        self.description.wait_for(state="visible")
+        
+        if not self.handle_product_options(subcategory_name):
+            self.page.go_back()
+            return 0.0
+        
+        # Get product price
+        product_price = self.get_product_price()
+        
+        # Click Add to Cart
+        self.add_to_cart_button.click()
+        print(f"Added product from subcategory: {subcategory_name}")
+        
+        return product_price
 
-                # Handle required size option for shoes
-                if subcategory["name"] == "Shoes":
-                    if self.size_option.is_visible():
-                        self.size_option.click()
+    def add_product_from_subcategory(self, subcategory: Dict[str, str]) -> float:
 
-                # Handle fragrance options
-                if subcategory["name"] == "Women":
-                    if self.fragrance_type.is_visible():
-                        if not self.select_fragrance_option():
-                            in_stock_products.remove(random_product)
-                            self.page.go_back()
-                            continue
-                    elif self.scent_options.is_visible():
-                        in_stock_products.remove(random_product)
-                        self.page.go_back()
-                        continue
+        self.navigate(subcategory["path"])
+        in_stock_products = self.get_in_stock_products()
+        
+        if not in_stock_products:
+            print(f"No in-stock products in subcategory: {subcategory['name']}")
+            return 0.0
 
-                # Handle products with more than one minimum quantity
-                if self.minimum_quantity.is_visible():
-                    print("Product has a minimum quantity, skipping.")
-                    in_stock_products.remove(random_product)
-                    self.page.go_back()
-                    continue
+        # Try products until one is successfully added or we run out of products
+        remaining_products = in_stock_products.copy()
+        while remaining_products:
+            random_product = random.choice(remaining_products)
+            remaining_products.remove(random_product)
+            
+            product_price = self.try_to_add_product_to_cart(random_product, subcategory["name"])
+            if product_price > 0:
+                return product_price
+                
+        print(f"No suitable product to add from subcategory: {subcategory['name']}")
+        return 0.0
 
-                # Check for "Add to Cart" button (to skip 'Call to order' cases)
-                if not self.add_to_cart_button.is_visible():
-                    print("No Add to Cart button, skipping.")
-                    in_stock_products.remove(random_product)
-                    self.page.go_back()
-                    continue
+    def add_random_item_to_cart_from_subcategories(self, subcategories: List[Dict[str, str]]) -> float:
 
-                # Get product price
-                product_price = self.get_product_price()
-
-                # Click Add to Cart
-                self.add_to_cart_button.click()
-                print(f"Added product from subcategory: {subcategory['name']}")
-                total_price += product_price
-                break
-            else:
-                print(f"No suitable product to add from subcategory: {subcategory['name']}")
+        total_price = 0.0
+        
+        for subcategory in subcategories:
+            product_price = self.add_product_from_subcategory(subcategory)
+            total_price += product_price
 
         return round(total_price, 2)
     
-    def go_to_checkout(self):
+    def go_to_checkout(self) -> None:
         self.cart_checkout_button.click()
