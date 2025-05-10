@@ -34,3 +34,8 @@ def clean_price_text(price_text: str) -> float:
     cleaned_text = re.sub(r'[£$€,]', '', price_text)
 
     return float(cleaned_text.strip())
+
+def extract_product_id_from_url(url: str) -> str:
+    #Extract product ID from URL using regex
+    match = re.search(r"product_id=(\d+)", url)
+    return match.group(1) if match else None
