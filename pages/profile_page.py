@@ -5,10 +5,10 @@ class ProfilePage(BasePage):
     def __init__(self, page):
         super().__init__(page)
 
-    def navigate_to_order_history(self):
+    def navigate_to_order_history(self) -> None:
         self.navigate("/index.php?rt=account/history")
 
-    def verify_order_id(self, order_number):
+    def verify_order_id(self, order_number) -> None:
         expect(self.page.get_by_text(f"Order ID: #{order_number}")).to_be_visible()
 
     def get_latest_order_total(self) -> float:

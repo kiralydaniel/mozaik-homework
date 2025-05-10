@@ -19,7 +19,7 @@ class RegistrationPage(BasePage):
         self.agree_checkbox = page.get_by_role("checkbox", name="I have read and agree to the")
         self.continue_button = page.get_by_role("button", name="Continue")
 
-    def fill_registration_form(self, user_data: dict):
+    def fill_registration_form(self, user_data: dict) -> None:
         self.first_name_input.fill(user_data["first_name"])
         self.last_name_input.fill(user_data["last_name"])
         self.email_input.fill(user_data["email"])
@@ -33,8 +33,8 @@ class RegistrationPage(BasePage):
         self.password_confirm_input.fill(user_data["password"])
         self.agree_checkbox.check()
     
-    def navigate_to_register(self):
+    def navigate_to_register(self) -> None:
         self.navigate("/index.php?rt=account/create")
 
-    def submit_registration(self):
+    def submit_registration(self) -> None:
         self.continue_button.click()

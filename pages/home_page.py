@@ -1,7 +1,7 @@
 from .base_page import BasePage
 from playwright.sync_api import expect, Locator
 import random
-from typing import List, Dict, Optional, Any
+from typing import List, Dict, Optional
 
 class HomePage(BasePage):
     def __init__(self, page):
@@ -23,8 +23,8 @@ class HomePage(BasePage):
         self.fragrance_options = page.locator("input[type='checkbox'][name^='option[335]']")
         self.scent_options = page.get_by_text("Choose Scent")
 
-    def user_is_logged_in(self) -> bool:
-        return self.profile_menu.is_visible()
+    def user_is_logged_in(self) -> None:
+        expect(self.profile_menu).to_be_visible()
 
     def navigate_to_home_page(self) -> None:
         self.navigate("/")

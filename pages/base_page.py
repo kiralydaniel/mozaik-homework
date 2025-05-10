@@ -5,5 +5,5 @@ class BasePage:
         self.page = page
         self.base_url = "https://automationteststore.com"
 
-    def navigate(self, path: str):
+    def navigate(self, path: str) -> None:
         self.page.goto(f"{self.base_url}{path}") 
