@@ -1,7 +1,7 @@
 from .base_page import BasePage
 from playwright.sync_api import expect, Locator
 from typing import List, Dict, Optional
-from utils.test_data import clean_price_text
+from utils.test_data import clean_price_text, extract_product_id_from_url
 import random
 
 class HomePage(BasePage):
@@ -25,6 +25,7 @@ class HomePage(BasePage):
         self.fragrance_type = page.get_by_text("Fragrance Type", exact=True)
         self.fragrance_options = page.locator("input[type='checkbox'][name^='option[335]']")
         self.scent_options = page.get_by_text("Choose Scent")
+        self.added_product_ids = set()
 
     def user_is_logged_in(self) -> None:
         expect(self.profile_menu).to_be_visible()
@@ -124,10 +125,9 @@ class HomePage(BasePage):
                 return False
 
         # Handle products with more than one minimum quantity
-        if subcategory_name == "Paperback":
-            if self.minimum_quantity.is_visible():
-                print("Product has a minimum quantity, skipping.")
-                return False
+        if self.minimum_quantity.is_visible():
+            print("Product has a minimum quantity, skipping.")
+            return False
 
         # Check for "Add to Cart" button (to skip 'Call to order' cases)
         if not self.add_to_cart_button.is_visible():
@@ -137,6 +137,11 @@ class HomePage(BasePage):
         return True
 
     def try_to_add_product_to_cart(self, product: Locator, subcategory_name: str) -> float:
+        product_href = product.locator("a").first.get_attribute("href")
+        product_id = extract_product_id_from_url(product_href)
+        if product_id in self.added_product_ids:
+            print(f"Product '{product_href}' already added, skipping.")
+            return 0.0
 
         product.click()
         self.description.wait_for(state="visible")
@@ -150,12 +155,12 @@ class HomePage(BasePage):
         
         # Click Add to Cart
         self.add_to_cart_button.click()
-        print(f"Added product from subcategory: {subcategory_name}")
+        print(f"Added product from subcategory: {subcategory_name}, path: {product_href}")
         
+        self.added_product_ids.add(product_id)
         return product_price
 
     def add_product_from_subcategory(self, subcategory: Dict[str, str]) -> float:
-
         self.navigate(subcategory["path"])
         in_stock_products = self.get_in_stock_products()
         
@@ -168,23 +173,26 @@ class HomePage(BasePage):
         while remaining_products:
             random_product = random.choice(remaining_products)
             remaining_products.remove(random_product)
-            
+
             product_price = self.try_to_add_product_to_cart(random_product, subcategory["name"])
+
             if product_price > 0:
                 return product_price
                 
         print(f"No suitable product to add from subcategory: {subcategory['name']}")
         return 0.0
 
-    def add_random_item_to_cart_from_subcategories(self, subcategories: List[Dict[str, str]]) -> float:
-
+    def add_random_item_to_cart_from_subcategories(self, subcategories: List[Dict[str, str]]) -> tuple[float, int]:
         total_price = 0.0
-        
+        product_count = 0
+
         for subcategory in subcategories:
             product_price = self.add_product_from_subcategory(subcategory)
-            total_price += product_price
+            if product_price > 0:
+                total_price += product_price
+                product_count += 1
 
-        return round(total_price, 2)
+        return round(total_price, 2), product_count
     
     def go_to_checkout(self) -> None:
         self.cart_checkout_button.click()

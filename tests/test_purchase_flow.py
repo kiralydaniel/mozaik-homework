@@ -34,7 +34,7 @@ def test_purchase_flow(page: Page, use_existing_user: bool):
     home_page.navigate_to_home_page()
     home_page.user_is_logged_in()
     home_page.set_currency() # Default is GBP, optionally can set to EUR or USD
-    total_price=home_page.add_random_item_to_cart_from_subcategories(home_page.get_subcategory_links())
+    total_price, added_product_count=home_page.add_random_item_to_cart_from_subcategories(home_page.get_subcategory_links())
     home_page.go_to_checkout()
     
     # Get shipping fee
@@ -48,7 +48,8 @@ def test_purchase_flow(page: Page, use_existing_user: bool):
     # Verify order in order history
     profile_page.navigate_to_order_history()
     profile_page.verify_order_id(order_number)
-    order_total = profile_page.get_latest_order_total()
+    order_total_price, order_product_quantity = profile_page.get_latest_order_total()
 
-    # Verify total price
-    assert pytest.approx(order_total + shipping_cost, rel=0.01) == pytest.approx(total_price, rel=0.01)
+    # Verify total price and item quantity
+    assert pytest.approx(order_total_price, rel=0.01) == pytest.approx(total_price + shipping_cost, rel=0.01)
+    assert order_product_quantity == added_product_count
