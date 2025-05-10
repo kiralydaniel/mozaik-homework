@@ -124,9 +124,10 @@ class HomePage(BasePage):
                 return False
 
         # Handle products with more than one minimum quantity
-        if self.minimum_quantity.is_visible():
-            print("Product has a minimum quantity, skipping.")
-            return False
+        if subcategory_name == "Paperback":
+            if self.minimum_quantity.is_visible():
+                print("Product has a minimum quantity, skipping.")
+                return False
 
         # Check for "Add to Cart" button (to skip 'Call to order' cases)
         if not self.add_to_cart_button.is_visible():
