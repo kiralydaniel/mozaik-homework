@@ -36,6 +36,9 @@ def test_purchase_flow(page: Page, use_existing_user: bool):
     home_page.set_currency_to_gbp()
     total_price=home_page.add_random_item_to_cart_from_subcategories(home_page.get_subcategory_links())
     home_page.go_to_checkout()
+    
+    # Get shipping fee
+    shipping_cost = checkout_page.get_shipping_fee()
 
     # Checkout process
     checkout_page.confirm_order()
@@ -48,6 +51,4 @@ def test_purchase_flow(page: Page, use_existing_user: bool):
     order_total = profile_page.get_latest_order_total()
 
     # Verify total price
-    # Assuming the shipping cost is fixed for this test
-    shipping_cost = 1.59
     assert pytest.approx(order_total + shipping_cost, rel=0.01) == pytest.approx(total_price, rel=0.01)
