@@ -1,7 +1,8 @@
 from .base_page import BasePage
 from playwright.sync_api import expect, Locator
-import random
 from typing import List, Dict, Optional
+from utils.test_data import clean_price_text
+import random
 
 class HomePage(BasePage):
     def __init__(self, page):
@@ -10,6 +11,8 @@ class HomePage(BasePage):
         # Locators
         self.currency_dropdown = page.locator("a").filter(has_text="$ US Dollar").first
         self.currency_gbp = page.get_by_role("link", name="£ Pound Sterling")
+        self.currency_euro = page.get_by_role("link", name="€ Euro")
+        self.currency_usd = page.get_by_role("link", name="$ US Dollar")
         self.profile_menu = page.get_by_role("link", name="Welcome back")
         self.subcategory_links_locator = self.page.locator("div.subcategories a")
         self.product_items = page.locator(".thumbnails.grid .thumbnail")
@@ -29,11 +32,20 @@ class HomePage(BasePage):
     def navigate_to_home_page(self) -> None:
         self.navigate("/")
 
-    def set_currency_to_gbp(self) -> None:
+    def set_currency(self, currency: str = "GBP") -> None:
+        currency_map = {
+        "GBP": self.currency_gbp,
+        "EUR": self.currency_euro,
+        "USD": self.currency_usd
+        }
+
+        if currency not in currency_map:
+            raise ValueError(f"Unsupported currency: {currency}. Supported currencies are: {', '.join(currency_map.keys())}")
+        
         expect(self.currency_dropdown).to_be_visible()
         self.currency_dropdown.hover()
-        expect(self.currency_gbp).to_be_visible()
-        self.currency_gbp.click()
+        expect(currency_map[currency]).to_be_visible()
+        currency_map[currency].click()
 
     def get_subcategory_links(self) -> List[Dict[str, str]]:
 
@@ -54,8 +66,10 @@ class HomePage(BasePage):
     def get_product_price(self) -> float:
 
         self.product_price.wait_for(state="visible")
-        price_text = self.product_price.inner_text().replace("£", "").replace(",", "").strip()
-        return float(price_text)
+        price_text = self.product_price.inner_text()
+
+        return clean_price_text(price_text)
+
     
     def select_fragrance_option(self, option_id: Optional[str] = None) -> bool:
         """

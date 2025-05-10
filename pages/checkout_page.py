@@ -1,5 +1,6 @@
 from .base_page import BasePage
 from playwright.sync_api import expect
+from utils.test_data import clean_price_text
 
 class CheckoutPage(BasePage):
     def __init__(self, page):
@@ -22,5 +23,6 @@ class CheckoutPage(BasePage):
     
     def get_shipping_fee(self) -> float:
         expect(self.shipping_text).to_be_visible()
-        shipping_fee = float(self.shipping_text.inner_text().replace("£", "").strip())
-        return shipping_fee
+        shipping_fee_text = self.shipping_text.inner_text()
+
+        return clean_price_text(shipping_fee_text)

@@ -1,5 +1,6 @@
 from .base_page import BasePage
 from playwright.sync_api import expect
+from utils.test_data import clean_price_text
 
 class ProfilePage(BasePage):
     def __init__(self, page):
@@ -21,7 +22,6 @@ class ProfilePage(BasePage):
         # Within this row, find the total
         total_cell = latest_order.locator("td", has_text="Total:")
         total_text = total_cell.inner_text()
-        
-        # Extract the price from the text
-        price = total_text.replace("Total:", "").replace("£", "").replace(",", "").strip()
-        return float(price)
+        price_text = total_text.replace("Total:", "")
+
+        return clean_price_text(price_text)
